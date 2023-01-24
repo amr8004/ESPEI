@@ -30,6 +30,7 @@ from espei import generate_parameters
 from espei.utils import ImmediateClient, database_symbols_to_fit
 from espei.datasets import DatasetError, load_datasets, recursive_glob, apply_tags
 from espei.optimizers.opt_mcmc import EmceeOptimizer
+from espei.pureElement import pe_dict, imp_data_PE, Cp_fit, pe_inputJSON, RWModelE, pe_def_model, pe_iGuess
 
 _log = logging.getLogger(__name__)
 
@@ -167,17 +168,51 @@ def run_espei(run_settings):
         phase_models = json.load(fp)
 
     if generate_parameters_settings is not None:
+        # separate input structure if PEM
         refdata = generate_parameters_settings['ref_state']
         excess_model = generate_parameters_settings['excess_model']
         ridge_alpha = generate_parameters_settings['ridge_alpha']
         aicc_penalty = generate_parameters_settings['aicc_penalty_factor']
         input_dbf = generate_parameters_settings.get('input_db', None)
-        if input_dbf is not None:
-            input_dbf = Database(input_dbf)
-        dbf = generate_parameters(phase_models, datasets, refdata, excess_model,
-                                  ridge_alpha=ridge_alpha, dbf=input_dbf,
-                                  aicc_penalty_factor=aicc_penalty,)
-        dbf.to_file(output_settings['output_db'], if_exists='overwrite')
+        pe_model = generate_parameters_settings['pe_model']
+        if pe_model is not None:
+            #Add documentation to this
+            print("####################RUNNING PE##################")
+            pe_dict() #creates the dictionary
+            #defines input information from yaml
+            syspm=system_settings['phase_models']
+            sys_data=system_settings['datasets']
+            pe_inputJSON(syspm)
+            #reads pure experimental pure element data
+            pureDat = imp_data_PE(sys_data)
+            #necessary T_range generation, actual values can be changed
+            T_range = np.linspace(1,pureDat.Temp.max()*1.1,num=200) #Why is df, defined as global undefined?
+            #Takes input model and formats so code can read and select correct model
+            def_model = pe_def_model(pe_model)
+            if def_model == "RWModelE":
+                parmNamesRW = ['ThetaE', 'a', 'b']
+                fit_paramsRW = Cp_fit(RWModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesRW, data_df=pureDat)
+                CpResRW = RWModelE(T_range, *fit_paramsRW)
+                print('###############RUN SUCCESS####################')
+                #print(CpResRW)
+                print(type(CpResRW))
+                pf=open(output_settings['output_db'],"w")
+                #cp_form=str("3 * 8.314 *(",fit_paramsRW[0]," / T ) ** 2 * exp(",fit_paramsRW[0],"/T) / (exp(",fit_paramsRW[0],"/ T) - 1) **2) +", fit_paramsRW[1], "* T + ",fit_paramsRW[2]," * T**4 + ",CpMBosse(T)
+                #pf.writelines([str(fit_paramsRW),'\n',str(CpResRW)]) # this is bad
+                pf.close()
+                #CpResRW.tofile(output_settings['output_db'], if_exists='overwrite')
+                CpResRW.savetxt(output_settings['output_db'])
+            dbf=[]
+            print("cha-ching")
+
+
+        else:
+            if input_dbf is not None:
+                input_dbf = Database(input_dbf)
+            dbf = generate_parameters(phase_models, datasets, refdata, excess_model,
+                                      ridge_alpha=ridge_alpha, dbf=input_dbf,
+                                      aicc_penalty_factor=aicc_penalty,)
+            dbf.to_file(output_settings['output_db'], if_exists='overwrite')
 
     if mcmc_settings is not None:
         tracefile = output_settings['tracefile']

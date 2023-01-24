@@ -162,6 +162,7 @@ def fit_formation_energy(dbf, comps, phase_name, configuration, symmetry, datase
 
     # create the candidate models and fitting steps
     if features is None:
+        #Add documentation of change
         features = OrderedDict([("CPM_FORM", (v.T * symengine.log(v.T), v.T**2, v.T**-1, v.T**3)),
                                 ("SM_FORM", (v.T,)),
                                 ("HM_FORM", (symengine.S.One,)),

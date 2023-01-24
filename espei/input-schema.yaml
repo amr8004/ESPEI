@@ -51,6 +51,7 @@ generate_parameters:
     ref_state:
       type: string
       required: True
+      nullable: True
     ridge_alpha:  # ridge regression hyperparameter
       type: float
       required: True
@@ -63,6 +64,9 @@ generate_parameters:
       default: null
     input_db: # TDB file used to start the parameter generation run
       type: string
+    pe_model: #model for PE (Einstein, Debye, CS, etc)
+      type: string
+
 
 
 ## if present, will run mcmc fitting
