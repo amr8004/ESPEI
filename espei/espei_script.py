@@ -30,7 +30,7 @@ from espei import generate_parameters
 from espei.utils import ImmediateClient, database_symbols_to_fit
 from espei.datasets import DatasetError, load_datasets, recursive_glob, apply_tags
 from espei.optimizers.opt_mcmc import EmceeOptimizer
-from espei.pureElement import pe_dict, imp_data_PE, Cp_fit, pe_inputJSON, RWModelE, pe_def_model, pe_iGuess
+from espei.pureElement import pe_dict, imp_data_PE, Cp_fit, pe_inputJSON, RWModelE,pe_def_model, pe_iGuess, autoH, RTDB_globals,CSModelE, SRModelE, autoS, autoG
 
 _log = logging.getLogger(__name__)
 
@@ -58,11 +58,11 @@ parser.add_argument("--version", "-v", action='version',
 def log_version_info():
     """Print version info to the log"""
     _log.info('espei version       %s', espei.__version__)
-    _log.info('pycalphad version   %s', pycalphad.__version__)
-    _log.info('dask version        %s', dask.__version__)
-    _log.info('distributed version %s', distributed.__version__)
-    _log.info('symengine version   %s', symengine.__version__)
-    _log.info('emcee version       %s', emcee.__version__)
+    _log.debug('pycalphad version   %s', pycalphad.__version__)
+    _log.debug('dask version        %s', dask.__version__)
+    _log.debug('distributed version %s', distributed.__version__)
+    _log.debug('symengine version   %s', symengine.__version__)
+    _log.debug('emcee version       %s', emcee.__version__)
     _log.info("If you use ESPEI for work presented in a publication, we ask that you cite the following paper:\n    %s", espei.__citation__)
 
 
@@ -176,33 +176,55 @@ def run_espei(run_settings):
         input_dbf = generate_parameters_settings.get('input_db', None)
         pe_model = generate_parameters_settings['pe_model']
         if pe_model is not None:
-            #Add documentation to this
             print("####################RUNNING PE##################")
             pe_dict() #creates the dictionary
-            #defines input information from yaml
+            #print(system_settings)
             syspm=system_settings['phase_models']
+            print('syspm=',syspm,'syspm type=',type(syspm))
             sys_data=system_settings['datasets']
-            pe_inputJSON(syspm)
-            #reads pure experimental pure element data
+            print('sys_data=',sys_data,'syspm type=',type(sys_data))
+            ele_placehold=pe_inputJSON(syspm)
             pureDat = imp_data_PE(sys_data)
-            #necessary T_range generation, actual values can be changed
             T_range = np.linspace(1,pureDat.Temp.max()*1.1,num=200) #Why is df, defined as global undefined?
-            #Takes input model and formats so code can read and select correct model
             def_model = pe_def_model(pe_model)
+            #write script to do this and combine 3 models into 1 command to import
             if def_model == "RWModelE":
                 parmNamesRW = ['ThetaE', 'a', 'b']
                 fit_paramsRW = Cp_fit(RWModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesRW, data_df=pureDat)
+                #print(testdic)
+                RTDB_globals['Te_final'] = fit_paramsRW[0]
+                #RTDB_globals['polya'] = fit_paramsRW[1]
+                #RTDB_globals['polyb'] = fit_paramsRW[2]
                 CpResRW = RWModelE(T_range, *fit_paramsRW)
                 print('###############RUN SUCCESS####################')
-                #print(CpResRW)
-                print(type(CpResRW))
-                pf=open(output_settings['output_db'],"w")
-                #cp_form=str("3 * 8.314 *(",fit_paramsRW[0]," / T ) ** 2 * exp(",fit_paramsRW[0],"/T) / (exp(",fit_paramsRW[0],"/ T) - 1) **2) +", fit_paramsRW[1], "* T + ",fit_paramsRW[2]," * T**4 + ",CpMBosse(T)
-                #pf.writelines([str(fit_paramsRW),'\n',str(CpResRW)]) # this is bad
-                pf.close()
-                #CpResRW.tofile(output_settings['output_db'], if_exists='overwrite')
-                CpResRW.savetxt(output_settings['output_db'])
-            dbf=[]
+                RWH=autoH(T_range,def_model)
+                print('##H SUCCESS##')
+                SWH=autoS(T_range,def_model)
+                print('##S SUccESS##')
+                GWH=autoG(T_range,def_model)
+                print('##G SUCCESS##')
+                ##print(CpResRW)
+                ##print(type(CpResRW))
+                #pf=open(output_settings['output_db'],"w")
+                ##dunno#cp_form=str("3 * 8.314 *(",fit_paramsRW[0]," / T ) ** 2 * exp(",fit_paramsRW[0],"/T) / (exp(",fit_paramsRW[0],"/ T) - 1) **2) +", fit_paramsRW[1], "* T + ",fit_paramsRW[2]," * T**4 + ",CpMBosse(T)
+                ##DUnno#pf.writelines([str(fit_paramsRW),'\n',str(CpResRW)]) # this is bad
+                #pf.close()
+                ##Dunno#CpResRW.tofile(output_settings['output_db'], if_exists='overwrite')
+                #CpResRW.savetxt(output_settings['output_db'])
+            elif def_model == "SRModelE":
+                parmNamesSR = ['Theta_E','beta1','beta2','tau','gamma']
+                fit_paramsSR = Cp_fit(SRModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesSR, data_df=pureDat)
+                CpResSR = SRModelE(T_range, *fit_paramsSR)
+                print('###############RUN SUCCESS####################')
+                #SRH=autoH(T_range)
+                #print(type(RWH))
+
+            elif def_model == "CSModelE":
+                parmNamesCS = ['ThetaE', 'a', 'b']
+                fit_paramsCS = Cp_fit(CSModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesCS, data_df=pureDat)
+                CpResCS = CSModelE(T_range, *fit_paramsCS)
+                print('###############RUN SUCCESS####################')
+            #dbf=[]
             print("cha-ching")
 
 
@@ -290,6 +312,7 @@ def run_espei(run_settings):
                       mcmc_data_weights=data_weights,
                       approximate_equilibrium=approximate_equilibrium,
                       )
+        optimizer.commit()
 
         optimizer.dbf.to_file(output_settings['output_db'], if_exists='overwrite')
         # close the scheduler, if possible
