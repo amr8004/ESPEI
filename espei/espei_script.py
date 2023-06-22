@@ -30,7 +30,8 @@ from espei import generate_parameters
 from espei.utils import ImmediateClient, database_symbols_to_fit
 from espei.datasets import DatasetError, load_datasets, recursive_glob, apply_tags
 from espei.optimizers.opt_mcmc import EmceeOptimizer
-from espei.pureElement import pe_dict, imp_data_PE, Cp_fit, pe_inputJSON, RWModelE,pe_def_model, pe_iGuess, autoH, RTDB_globals,CSModelE, SRModelE, autoS, autoG
+from espei.pureElement import pe_dict, imp_data_PE, Cp_fit, pe_inputJSON,pe_def_model, pe_iGuess, RTDB_globals#,RWModelE,CSModelE, SRModelE, autoS, autoG
+from pycalphad import RWModelE,autoH,CSModelE,SRModelE,autoS,autoG
 
 _log = logging.getLogger(__name__)
 
