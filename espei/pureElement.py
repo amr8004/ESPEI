@@ -596,12 +596,15 @@ def GTBCM(x, k1, k2, alfa, g):
     try:
         len(x)
     except TypeError:
-        G = HTBCM(x, k1, k2, alfa, g) - TSTBCM(x,k1,k2,alfa,g) - HTBCM(298.15, k1, k2, alfa, g)
+        G2 = HTBCM(x, k1, k2, alfa, g) - TSTBCM(x,k1,k2,alfa,g) - HTBCM(298.15, k1, k2, alfa, g)
     else:
         for i in x:
             Gi = HTBCM(i, k1, k2, alfa, g) - TSTBCM(i,k1,k2,alfa,g) - HTBCM(298.15, k1, k2, alfa, g)
             G.append(Gi)
-    return G
+            G2=[]
+            for i in range(len(G)):
+                G2.append(G[i][0])
+    return G2
 
 #Magnetic S, H, G
 def GibbsM_Bosse(x):
@@ -864,57 +867,92 @@ def H0(x):
     try:
         len(x)
     except TypeError:
-        H_calc = CP_TM*(x-RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*x+x**2.0)/RTDB_globals['a_sig']))+RTDB_globals['FC']*RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*x+x**2)/RTDB_globals['a_sig']**2)
+        H_calc = CP_TM*(x-RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*x+x**2.0)/RTDB_globals['a_sig']**2.0))+RTDB_globals['FC']*RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*x+x**2)/RTDB_globals['a_sig']**2)
         Hz.append(H_calc)
     else:
         for i in x: #[for every value of x]
-            H_calc = CP_TM*(i-RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*i+i**2.0)/RTDB_globals['a_sig']))+RTDB_globals['FC']*RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*i+i**2)/RTDB_globals['a_sig']**2)
+            H_calc = CP_TM*(i-RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*i+i**2.0)/RTDB_globals['a_sig']**2.0))+RTDB_globals['FC']*RTDB_globals['a_sig']*np.sqrt((RTDB_globals['a_sig']**2.0+RTDB_globals['TM']**2.0-2.0*RTDB_globals['TM']*i+i**2)/RTDB_globals['a_sig']**2)
             Hz.append(H_calc)
     return Hz
-#need to re-add magsplit or make autoHmag
+
+#HM currently problem child
 def autoH(T, def_model):
     if def_model == "CSModelE":
         print('cs')
-        HCS=HTCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            HCS=HTCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+        else:
+            HCS=HTCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])+HM(T)
         H_val=HCS+HEin(CSE,T_plot)
     elif def_model == "RWModelE":
-        print('rw',RTDB_globals['polya'],RTDB_globals['polyb'])
-        HRWtest=HTRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
-        H_val=HRWtest+HEin(RTDB_globals['Te_final'],T)
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+        #print('rw',RTDB_globals['polya'],RTDB_globals['polyb'])
+            HRW=HTRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+        else:
+            HRW=HTRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])+HM(T)
+        H_val=HRW+HEin(RTDB_globals['Te_final'],T)
     elif def_model == "SRModelE":
-        print('sr')
-        HBCM=HTBCM(T, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            HBCM=HTBCM(T, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
+        else:
+            HBCM=HTBCM(T, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])+HM(T)
         H_val=HEin(RTDB_globals['Te_final'],T)+HBCM
 
     return H_val
 
 def autoS(T, def_model):
     if def_model == "CSModelE":
-        print('cs')
-        HCS=STCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            SCS=STCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+        else:
+            SCS=STCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])+SM(T)
         H_val=HCS+SEin(CSE,T)
     elif def_model == "RWModelE":
-        print('rw',RTDB_globals['polya'],RTDB_globals['polyb'])
-        SRWtest=STRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
-        S_val=SRWtest+SEin(RTDB_globals['Te_final'],T)
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            SRW=STRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+        else:
+            SRW=STRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])+SM(T)
+        S_val=SRW+SEin(RTDB_globals['Te_final'],T)
     elif def_model == "SRModelE":
-        print('sr')
-        SBCM=STBCM(T_plot, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            SBCM=STBCM(T_plot, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
+        else:
+            SBCM=STBCM(T_plot, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])+SM(T)
         S_val=SEin(RTDB_globals['Te_final'],T)+SBCM
     return S_val
 
+
+# +GibbsM_Bosse(T) or GM_Bosse(T) do figure this out homie
 def autoG(T, def_model):
     if def_model == "CSModelE":
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
         print('cs')
-        GCStest=GTCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
-        G_val=GCStest+GEin(RTDB_globals['Te_final'],T)
+            GCS=GTCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+            G_val=GCS+GEin(RTDB_globals['Te_final'],T)
+        else:
+            GCS=GTCSM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+            G_val=GCS+GEin(RTDB_globals['Te_final'],T)+GibbsM_Bosse(T)
     elif def_model == "RWModelE":
-        GRW=GTRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
-        G_val=GRW+GEin(RTDB_globals['Te_final'],T)
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            GRW=GTRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+            G_val=GRW+GEin(RTDB_globals['Te_final'],T)
+        else:
+            GRW=GTRWM(T,RTDB_globals['polya'],RTDB_globals['polyb'])
+            G_val=GRW+GEin(RTDB_globals['Te_final'],T)+GibbsM_Bosse(T)
     elif def_model == "SRModelE":
         print('sr')
-        SBCM=STBCM(T_plot, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
-        SBCM1=SEin(RTDB_globals['Te_final'],T)+SBCM
+        if RTDB_globals['bta'] == 0 or RTDB_globals['p'] == 0 or RTDB_globals['Tc'] == 0:
+            GBCM=GTBCM(T_plot, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
+            GBCM2=[]
+            for i in range(len(GBCM)):
+                GBCM2.append(GBCM[i][0])
+            G_val=GEin(RTDB_globals['Te_final'],T)+GBCM2
+        else:
+            GBCM=GTBCM(T_plot, RTDB_globals['k1_final'], RTDB_globals['k2_final'], RTDB_globals['alfa_final'], RTDB_globals['g_final'])
+            GBCM2=[]
+            for i in range(len(GBCM)):
+                GBCM2.append(GBCM[i][0])
+            G_val=GEin(RTDB_globals['Te_final'],T)+GBCM2+GibbsM_Bosse(T)
     return G_val
 
 ##Unclear what Below is for, tbh cant remember
