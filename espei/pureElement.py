@@ -80,6 +80,7 @@ def PE_AICC(nparm, nobs,rss,aicc_factor=None):
     else:
         correction = (2.0 * p**2 * k**2 + 2.0 * pk) / (n - pk - 1.0)
     aicc = aic+correction
+    print('correction: ',correction)
     print('CHECKPOINT AICC SOLVED')
     return aicc
 
@@ -126,6 +127,6 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     print()
     print ('Residual Standard Error: % 5.4f' % RMSE)
     print ('Df: %i' % dof)
-    print('AIC:', AIC(logLik, nparm))
+    print('AIC:', AIC(logLik, nparm)- nobs * 2*np.log(2*np.pi()))
     print('AICC:', PE_AICC(nparm, nobs,RSS))
     return parmEsts
