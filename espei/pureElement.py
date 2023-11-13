@@ -15,6 +15,8 @@ from pycalphad.model import Define_Element
 #HSG magnetic vs nonmagnetic automatic test and calculate
 #
 
+#KEY NOTES: parameter_selection/selection.py has model selection code, utilize here to automate model selection.
+
 def imp_data_PE(file):
     """
     This needs to be changed to run through the espei command, run from espei_script.py script
@@ -60,7 +62,21 @@ def pe_input(file): #look to nest all this?
 # Get AIC. Add 1 to the df to account for estimation of standard error
 def AIC(logLik, nparm,k=2):
     """ Look for built in AIC to replace this"""
-    return -2*logLik + k*(nparm + 1)
+    return - 2 * logLik + k * (nparm + 1)
+
+def PE_AICC(nparm, nobs,aicc_factor=None,rss):
+    #nparm = ESPEI k
+    n = nobs
+    p=aicc_factor if aicc_factor is not None else 1.0
+    pk = nparm*p
+    aic = n * np.log(rss / n) + 2 * pk
+    if pk >= (n-1.0):
+        # Prevent the denominator of the proper mAICc from blowing up (pk = n - 1) or negative (pk > n - 1)
+        correction = (2.0* p**2 * k**2 + 2.0 * pk) * (-n + pk + 3.0)
+    else:
+        correction = (2.0 * p**2 * k**2 + 2.0 * pk) / (n - pk - 1.0)
+    aicc = aic+correction
+    return aicc
 
 def Cp_fit(func, initialGuess, parmNames, data_df):
     """ Should be fine as is"""
@@ -106,4 +122,5 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     print ('Residual Standard Error: % 5.4f' % RMSE)
     print ('Df: %i' % dof)
     print('AIC:', AIC(logLik, nparm))
+    print('AICC:', PE_AICC(nparm, nobs = nobs, rss = RSS))
     return parmEsts
