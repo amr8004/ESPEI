@@ -64,7 +64,7 @@ def AIC(logLik, nparm,k=2):
     """ Look for built in AIC to replace this"""
     return - 2 * logLik + k * (nparm + 1)
 
-def PE_AICC(nparm, nobs,aicc_factor=None,rss):
+def PE_AICC(nparm, nobs,rss,aicc_factor=None):
     print('CHECKPOINT AICC CALLED')
     #nparm = ESPEI k
     n = nobs
@@ -124,5 +124,5 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     print ('Residual Standard Error: % 5.4f' % RMSE)
     print ('Df: %i' % dof)
     print('AIC:', AIC(logLik, nparm))
-    print('AICC:', PE_AICC(nparm, nobs = nobs, rss = RSS))
+    print('AICC:', PE_AICC(nparm, nobs = nobs,RSS))
     return parmEsts
