@@ -124,5 +124,5 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     print ('Residual Standard Error: % 5.4f' % RMSE)
     print ('Df: %i' % dof)
     print('AIC:', AIC(logLik, nparm))
-    print('AICC:', PE_AICC(nparm, nobs = nobs,RSS))
+    print('AICC:', PE_AICC(nparm, nobs,RSS))
     return parmEsts
