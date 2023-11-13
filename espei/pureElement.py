@@ -66,7 +66,7 @@ def AIC(logLik, nparm,k=2):
 
 def PE_AICC(nparm, nobs,rss,aicc_factor=None):
     print('CHECKPOINT AICC CALLED')
-    #nparm = ESPEI k
+    k= nparm
     n = nobs
     p=aicc_factor if aicc_factor is not None else 1.0
     pk = nparm*p
