@@ -68,9 +68,12 @@ def PE_AICC(nparm, nobs,rss,aicc_factor=None):
     print('CHECKPOINT AICC CALLED')
     k= nparm
     n = nobs
+    print('k=',k,
+    'n=',n)
     p=aicc_factor if aicc_factor is not None else 1.0
     pk = nparm*p
     aic = n * np.log(rss / n) + 2 * pk
+    print('aic2:', aic)
     if pk >= (n-1.0):
         # Prevent the denominator of the proper mAICc from blowing up (pk = n - 1) or negative (pk > n - 1)
         correction = (2.0* p**2 * k**2 + 2.0 * pk) * (-n + pk + 3.0)
