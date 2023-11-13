@@ -65,6 +65,7 @@ def AIC(logLik, nparm,k=2):
     return - 2 * logLik + k * (nparm + 1)
 
 def PE_AICC(nparm, nobs,aicc_factor=None,rss):
+    print('CHECKPOINT AICC CALLED')
     #nparm = ESPEI k
     n = nobs
     p=aicc_factor if aicc_factor is not None else 1.0
@@ -76,6 +77,7 @@ def PE_AICC(nparm, nobs,aicc_factor=None,rss):
     else:
         correction = (2.0 * p**2 * k**2 + 2.0 * pk) / (n - pk - 1.0)
     aicc = aic+correction
+    print('CHECKPOINT AICC SOLVED')
     return aicc
 
 def Cp_fit(func, initialGuess, parmNames, data_df):
