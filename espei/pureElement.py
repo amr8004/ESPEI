@@ -61,7 +61,7 @@ def pe_input(file): #look to nest all this?
 
 # Get AIC. Add 1 to the df to account for estimation of standard error
 def AIC(logLik, nparm,k=2):
-    """ Look for built in AIC to replace this"""
+    """Look for built in AIC to replace this"""
     return - 2 * logLik + k * (nparm + 1)
 
 def PE_AICC(nparm, nobs,rss,aicc_factor=None):
@@ -114,7 +114,7 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
 
     # Get goodnes-of-fit criteria
     s2b = RSS / nobs
-    logLik = -nobs/2 * np.log(2*np.pi) - nobs/2 * np.log(s2b) - 1/(2*s2b) * RSS
+    logLik = -nobs/2 * (np.log(2*np.pi) - np.log(s2b)) - 1/(2*s2b) * RSS
 
     fit_df=pd.DataFrame(dict( Estimate=parmEsts, StdErr=parmSE, tval=tvals, pval=pvals))
 
@@ -127,6 +127,6 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     print()
     print ('Residual Standard Error: % 5.4f' % RMSE)
     print ('Df: %i' % dof)
-    print('AIC:', AIC(logLik, nparm)- nobs * 2*np.log(2*np.pi()))
+    print('AIC:', AIC(logLik, nparm))
     print('AICC:', PE_AICC(nparm, nobs,RSS))
     return parmEsts
