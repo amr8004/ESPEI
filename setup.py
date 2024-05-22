@@ -22,7 +22,7 @@ setup(
         'corner',
         'dask[complete]>=2',
         'distributed>=2',
-        'emcee=3.1.4',
+        'emcee==3.1.4',
         'importlib_metadata',  # drop for Python>=3.8
         'matplotlib',
         'numpy>=1.20',
