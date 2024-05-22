@@ -34,6 +34,7 @@ setup(
         'scipy',
         'symengine>=0.9',
         'tinydb>=4',
+        'tqdm',
     ],
     extras_require={
         'dev': [

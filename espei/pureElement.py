@@ -8,7 +8,7 @@ from scipy import integrate
 import os
 import json
 import espei.pure_element.DB_load as PEDB
-from pycalphad.model import Define_Element
+from pycalphad.model import Define_Element, SRModelE, RWModelE, CSModelE
 import emcee
 
 #from espei.paramselect import fit_formation_energy
@@ -177,8 +177,8 @@ def MCMC_fit(model_flag, initialGuess, data_df, nwalkers=12, nsteps=10000, stepR
     pos = []
     for i in range(nwalkers):
         re = []
-        std = np.random.randn(len(initial_params))
-        for n,v in enumerate(initial_params):
+        std = np.random.randn(len(initialGuess))
+        for n,v in enumerate(initialGuess):
             va = v + 0.25*std[n]*v
             re.append(va)
         pos.append(np.array(re))
