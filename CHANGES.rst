@@ -5,16 +5,67 @@ Changelog
 |version| (development)
 =======================
 
+0.9.0 (2024-08-12)
+==================
+
+Improvements
+------------
+* Migrate to PyCalphad Workspace (`@bocklund`_ - :issue:`256`)
+
+  - PyCalphad's ``IsolatedPhase`` feature improves accuracy and elimintes the
+    need for a heuristic to perform constrained equilibria when computing the
+    likelihood for phase diagram data.
+  - ESPEI users will likely see a small 2-4x performance regression in MCMC as
+    some of the heavily optimized code paths in ESPEI were removed in favor of
+    the versions implemented in ``Workspace``. We are looking in to further
+    optimizations and utilizing Jansson derivatives to compute likelihood
+    gradients that will enable us to use more performant optimization and MCMC methods.
+
+Dependencies
+------------
+* Update minimum required PyCalphad version to 0.11 (`@bocklund`_ - :issue:`259`)
+* Add NumPy 2.0 support (`@bocklund`_ - :issue:`255`)
+
+Deprecations
+------------
+* Remove code scheduled for deprecation in ESPEI 0.9: deprecations (`@bocklund`_ - :issue:`257`)
+
+  - ``espei.plot``: ``plot_parameters`` is replaced with ``plot_interaction`` and ``plot_endmember``. ``eqdataplot`` and ``multiplot`` are replaced with using ``dataplot`` combined with the relevant PyCalphad phase diagram plotting code.
+  - ESPEI YAML input: ``scheduler: "None"`` is replaced by ``scheduler: null``
+
+
+0.8.10 (2024-01-30)
+===================
+
+Improvements
+------------
+* Add a generic framework for property model parameter generation (`@bocklund`_ - :issue:`251`)
+* Improve performance for generating candidate models with many features (`@bocklund`_ - :issue:`254`)
+* MCMC: Replace one of the initial MCMC chains with the initial parameter values. This should improve convergence and prevent significant regression compared to input parameters. (`@toastedcrumpets`_ - :issue:`249`)
+* Support checking only a single dataset from command line (`@zhyrek`_ - :issue:`244`)
+
+Bug fixes
+---------
+* Fix ``dataplot()`` for ternary cases with that use ``__HYPERPLANE__`` (`@bocklund`_ - :issue:`252`)
+* Fix ``Residual`` protocol for MCMC for newer Python versions (3.11+) (`@bocklund`_ - :issue:`253`)
+* Correctly pass parameters through ``calculate_activity_error()`` (`@bocklund`_ - :issue:`246`)
+
+Dependencies
+------------
+* Update pycalphad minimum version to 0.10.4 to support new property modeling framework (`@bocklund`_)
+* Migrate to pydantic v2 (`@bocklund`_ - :issue:`247`, :issue:`248`)
+* [Developer] Add support for Python 3.12 in test framework (`@bocklund`_)
+
 0.8.9 (2022-08-04)
 ==================
 
 Improvements
-============
-* Support varying pressure and P-X plots in dataplot() and ravel_zpf_values() (`@bocklund`_ - :issue:`240`)
+------------
+* Support varying pressure and P-X plots in ``dataplot()`` and ``ravel_zpf_values()`` (`@bocklund`_ - :issue:`240`)
 * MCMC: Refactor residual/likelihood functions to better support custom user data types and likelihood functions (`@bocklund`_ - :issue:`236`)
 
 Deprecations
-============
+------------
 * Drop Python 3.7 (following NEP-29) (`@bocklund`_ - :issue:`237`)
 * Remove custom graph of optimizer history (`@bocklund`_ - :issue:`235`)
 
@@ -23,7 +74,7 @@ Deprecations
 
 Improvements
 ------------
-* Generalize  entering the `__HYPERPLANE__` phase in ZPF vertices to control the compositions for the target hyperplane (`@bocklund`_ - :issue:`221`)
+* Generalize  entering the ``__HYPERPLANE__`` phase in ZPF vertices to control the compositions for the target hyperplane (`@bocklund`_ - :issue:`221`)
 * Update for CompositionSet-based solver in pycalphad 0.10.1 (`@bocklund`_ - :issue:`232`)
 * Fix generating parameters for symmetry of 4 sublattice FCC models (`@bocklund`_ - :issue:`229`)
 * Fix a bug where a trace of all zeros would raise an error.
@@ -474,4 +525,6 @@ ESPEI is now a package! New features include
 
 .. _`@bocklund`: https://github.com/bocklund
 .. _`@jwsiegel2510`: https://github.com/jwsiegel2510
+.. _`@toastedcrumpets`: https://github.com/toastedcrumpets
 .. _`@wahab2604`: https://github.com/wahab2604
+.. _`@zhyrek`: https://github.com/zhyrek

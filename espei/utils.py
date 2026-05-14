@@ -8,6 +8,7 @@ from typing import Any, Dict, Type
 import importlib
 import itertools
 import re
+import sys
 import warnings
 from collections import namedtuple
 
@@ -18,6 +19,7 @@ from pycalphad import Model, variables as v
 from symengine import Symbol
 from tinydb import TinyDB, where
 from tinydb.storages import MemoryStorage
+from emcee.ensemble import _function_wrapper
 
 
 def unpack_piecewise(x):
@@ -45,19 +47,43 @@ class PickleableTinyDB(TinyDB):
         self.__init__(storage=MemoryStorage)
         self.insert_multiple(state['_tables']['_default'])
 
-
 class ImmediateClient(Client):
     """
     A subclass of distributed.Client that automatically unwraps the Futures
     returned by map.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # The active memory manager (AMM) removes any duplicate data found across workers,
+        # and any tasks that require said data will go to the one worker where it is retained on
+        # However, we want the context to remain on all workers to limit data transfer so we disable AMM
+        _client = super(ImmediateClient, self)
+        _client.amm.stop()
+        self.future_kwargs = {}
+
     def map(self, f, *iterators, **kwargs):
         """Map a function on a sequence of arguments.
 
         Any keyword arguments are passed to distributed.Client.map
         """
         _client = super(ImmediateClient, self)
-        result = _client.gather(_client.map(f, *[list(it) for it in iterators], **kwargs))
+
+        # This is specific to emcee, where f, args, kwargs are put into a function wrapper object
+        # We want to submit the kwargs to the client before evaluating func which allows us
+        # to reuse the submitted context data
+        # NOTE: in emcee 3.x, _function_wrapper has been renamed to FunctionWrapper
+        if isinstance(f, _function_wrapper):
+            func = f.f
+            # Submit kwargs as futures if not done so
+            # If a future in the context was cancelled, then also resubmit it
+            #   This is in case dask workers are restarted, they could still have access to the context
+            for key in f.kwargs:
+                if key not in self.future_kwargs or self.future_kwargs[key].cancelled():
+                    self.future_kwargs[key] = _client.submit(lambda x: x, f.kwargs[key], key=key)
+            result = _client.gather(_client.map(func, *[list(it) for it in iterators], **self.future_kwargs))
+        else:
+            result = _client.gather(_client.map(f, *[list(it) for it in iterators], **kwargs))
         return result
 
 
@@ -99,7 +125,7 @@ def optimal_parameters(trace_array, lnprob_array, kth=0):
     >>> from espei.utils import optimal_parameters
     >>> trace = np.array([[[1, 0], [2, 0], [3, 0], [0, 0]], [[0, 2], [0, 4], [0, 6], [0, 0]]])  # 3 iterations of 4 allocated
     >>> lnprob = np.array([[-6, -4, -2, 0], [-3, -1, -2, 0]])
-    >>> np.all(np.isclose(optimal_parameters(trace, lnprob), np.array([0, 4])))
+    >>> bool(np.all(np.isclose(optimal_parameters(trace, lnprob), np.array([0, 4]))))
     True
 
     """
@@ -392,6 +418,14 @@ def import_qualified_object(obj_path: str) -> Any:
     >>> from pycalphad.model import Model
     >>> assert Mod is Model
     """
+    # We want users to be able to use local modules when they extend ESPEI,
+    # so we ensure that working directory is on the path.
+    # We append because we want any installed packages to take precedent in the
+    # case that a user _doesn't_ have local packages on their path already,
+    # otherwise a user naming a module something like "espei" (wouldn't be
+    # surprising) could cause things to break.
+    if "." not in sys.path:
+        sys.path.append(".")
     split_path = obj_path.split('.')
     module_import_path = '.'.join(split_path[:-1])
     obj_name = split_path[-1]

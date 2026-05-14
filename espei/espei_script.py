@@ -27,11 +27,10 @@ from pycalphad import Database
 import espei
 from espei.validation import schema
 from espei import generate_parameters
-from espei.utils import ImmediateClient, database_symbols_to_fit
+from espei.utils import ImmediateClient, database_symbols_to_fit, import_qualified_object
 from espei.datasets import DatasetError, load_datasets, recursive_glob, apply_tags
 from espei.optimizers.opt_mcmc import EmceeOptimizer
-from espei.pureElement import imp_data_PE, Cp_fit, pe_inputJSON,pe_def_model, pe_iGuess#,RWModelE,CSModelE, SRModelE, autoS, autoG
-from pycalphad.model import RWModelE,autoH,CSModelE,SRModelE,autoS,autoG, pe_dict, RTDB_globals
+from espei.pureElement import imp_data_PE, Cp_fit, pe_inputJSON, pe_def_model, pe_iGuess, select_model
 
 _log = logging.getLogger(__name__)
 
@@ -117,14 +116,11 @@ def get_run_settings(input_dict):
         if run_settings['mcmc'].get('restart_trace') is None:
             run_settings['mcmc']['chains_per_parameter'] = run_settings['mcmc'].get('chains_per_parameter', 2)
             run_settings['mcmc']['chain_std_deviation'] = run_settings['mcmc'].get('chain_std_deviation', 0.1)
-        if run_settings['mcmc']['scheduler'] == 'None':
-            warnings.warn(
-                "Setting scheduler to the string 'None' will be deprecated in ESPEI "
-                "0.9. Use `null` in YAML or `None` in Python.", FutureWarning
-            )
-            run_settings['mcmc']['scheduler'] = None
     if not schema.validate(run_settings):
         raise ValueError(schema.errors)
+    if run_settings.get("generate_parameters") is not None:
+        # load the fitting description object
+        run_settings["generate_parameters"]["fitting_description"] = import_qualified_object(run_settings["generate_parameters"]["fitting_description"])
     return run_settings
 
 
@@ -174,67 +170,30 @@ def run_espei(run_settings):
         excess_model = generate_parameters_settings['excess_model']
         ridge_alpha = generate_parameters_settings['ridge_alpha']
         aicc_penalty = generate_parameters_settings['aicc_penalty_factor']
-        input_dbf = generate_parameters_settings.get('input_db', None)
-        pe_model = generate_parameters_settings['pe_model']
+        fitting_description = generate_parameters_settings['fitting_description']
+        pe_model = generate_parameters_settings.get('pe_model')
         if pe_model is not None:
-            print("####################RUNNING PE##################")
-            pe_dict() #creates the dictionary
-            #print(system_settings)
-            syspm=system_settings['phase_models']
-            print('syspm=',syspm,'syspm type=',type(syspm))
-            sys_data=system_settings['datasets']
-            print('sys_data=',sys_data,'syspm type=',type(sys_data))
-            ele_placehold=pe_inputJSON(syspm)
-            pureDat = imp_data_PE(sys_data)
-            T_range = np.linspace(1,pureDat.Temp.max()*1.1,num=200) #Why is df, defined as global undefined?
-            def_model = pe_def_model(pe_model)
-            #write script to do this and combine 3 models into 1 command to import
-            if def_model == "RWModelE":
-                parmNamesRW = ['ThetaE', 'a', 'b']
-                fit_paramsRW = Cp_fit(RWModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesRW, data_df=pureDat)
-                #print(testdic)
-                RTDB_globals['Te_final'] = fit_paramsRW[0]
-                #RTDB_globals['polya'] = fit_paramsRW[1]
-                #RTDB_globals['polyb'] = fit_paramsRW[2]
-                CpResRW = RWModelE(T_range, *fit_paramsRW)
-                print('###############RUN SUCCESS####################')
-                RWH=autoH(T_range,def_model)
-                print('##H SUCCESS##')
-                SWH=autoS(T_range,def_model)
-                print('##S SUccESS##')
-                GWH=autoG(T_range,def_model)
-                print('##G SUCCESS##')
-                ##print(CpResRW)
-                ##print(type(CpResRW))
-                #pf=open(output_settings['output_db'],"w")
-                ##dunno#cp_form=str("3 * 8.314 *(",fit_paramsRW[0]," / T ) ** 2 * exp(",fit_paramsRW[0],"/T) / (exp(",fit_paramsRW[0],"/ T) - 1) **2) +", fit_paramsRW[1], "* T + ",fit_paramsRW[2]," * T**4 + ",CpMBosse(T)
-                ##DUnno#pf.writelines([str(fit_paramsRW),'\n',str(CpResRW)]) # this is bad
-                #pf.close()
-                ##Dunno#CpResRW.tofile(output_settings['output_db'], if_exists='overwrite')
-                #CpResRW.savetxt(output_settings['output_db'])
-            elif def_model == "SRModelE":
-                parmNamesSR = ['Theta_E','beta1','beta2','tau','gamma']
-                fit_paramsSR = Cp_fit(SRModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesSR, data_df=pureDat)
-                CpResSR = SRModelE(T_range, *fit_paramsSR)
-                print('###############RUN SUCCESS####################')
-                #SRH=autoH(T_range)
-                #print(type(RWH))
-
-            elif def_model == "CSModelE":
-                parmNamesCS = ['ThetaE', 'a', 'b']
-                fit_paramsCS = Cp_fit(CSModelE, initialGuess=pe_iGuess(pe_model), parmNames=parmNamesCS, data_df=pureDat)
-                CpResCS = CSModelE(T_range, *fit_paramsCS)
-                print('###############RUN SUCCESS####################')
-            #dbf=[]
-            print("cha-ching")
-
-
+            _log.info("Running pure element fitting model: %s", pe_model)
+            syspm = system_settings['phase_models']
+            sys_data = system_settings['datasets']
+            pe_inputJSON(syspm)
+            pure_data = imp_data_PE(sys_data)
+            model_name = pe_def_model(pe_model)
+            model_func = select_model(model_name)
+            if model_name in ("RWModelE", "CSModelE"):
+                parm_names = ['ThetaE', 'a', 'b']
+            elif model_name == "SRModelE":
+                parm_names = ['Theta_E', 'beta1', 'beta2', 'tau', 'gamma']
+            else:
+                raise ValueError(f"Unsupported pure element model '{model_name}'")
+            Cp_fit(model_func, initialGuess=pe_iGuess(pe_model), parmNames=parm_names, data_df=pure_data)
+            dbf = []
         else:
             if input_dbf is not None:
                 input_dbf = Database(input_dbf)
             dbf = generate_parameters(phase_models, datasets, refdata, excess_model,
                                       ridge_alpha=ridge_alpha, dbf=input_dbf,
-                                      aicc_penalty_factor=aicc_penalty,)
+                                      aicc_penalty_factor=aicc_penalty, fitting_description=fitting_description)
             dbf.to_file(output_settings['output_db'], if_exists='overwrite')
 
     if mcmc_settings is not None:
@@ -333,7 +292,16 @@ def main():
     # if desired, check datasets and return
     if args.check_datasets:
         dataset_filenames = sorted(recursive_glob(args.check_datasets, '*.json'))
+
+        #if the path is a file, add that file to the list (test single dataset case!)
+        if(os.path.isfile(args.check_datasets)):
+            dataset_filenames.append(os.path.normpath(args.check_datasets))
+
+        #if there are no input files, warn the user they may have typed the wrong path
         errors = []
+        if(len(dataset_filenames) == 0):
+            errors.append(OSError("No input .json files detected at "+str(os.path.normpath(args.check_datasets))+", is your path correct?"))
+
         for dataset in dataset_filenames:
             try:
                 load_datasets([dataset])
