@@ -8,7 +8,13 @@ from scipy import integrate
 import os
 import json
 import espei.pure_element.DB_load as PEDB
-from pycalphad.model import Define_Element, SRModelE, RWModelE, CSModelE
+try:
+    from pycalphad.model import Define_Element, SRModelE, RWModelE, CSModelE
+except ImportError:
+    Define_Element = None
+    SRModelE = None
+    RWModelE = None
+    CSModelE = None
 import emcee
 
 #from espei.paramselect import fit_formation_energy
@@ -33,6 +39,8 @@ def imp_data_PE(file):
 
 def pe_inputJSON(file):
     #path= os.path.join('.\inst\Example_Data',file) #this probably needs changing
+    if Define_Element is None:
+        raise ImportError("Pure element fitting requires pycalphad model APIs unavailable in this pycalphad version.")
     inJSON=open(file)
     ldJSON=json.load(inJSON)
     ele=Define_Element(ldJSON['components'])
@@ -134,6 +142,8 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     return parmEsts
 
 def select_model(model_flag):
+    if RWModelE is None or CSModelE is None or SRModelE is None:
+        raise ImportError("Pure element fitting requires pycalphad model APIs unavailable in this pycalphad version.")
     # Select the model to use
     if model_flag == 'RWModelE':
         return RWModelE

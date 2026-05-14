@@ -30,7 +30,6 @@ from espei import generate_parameters
 from espei.utils import ImmediateClient, database_symbols_to_fit, import_qualified_object
 from espei.datasets import DatasetError, load_datasets, recursive_glob, apply_tags
 from espei.optimizers.opt_mcmc import EmceeOptimizer
-from espei.pureElement import imp_data_PE, Cp_fit, pe_inputJSON, pe_def_model, pe_iGuess, select_model
 
 _log = logging.getLogger(__name__)
 
@@ -173,6 +172,7 @@ def run_espei(run_settings):
         fitting_description = generate_parameters_settings['fitting_description']
         pe_model = generate_parameters_settings.get('pe_model')
         if pe_model is not None:
+            from espei.pureElement import imp_data_PE, Cp_fit, pe_inputJSON, pe_def_model, pe_iGuess, select_model
             _log.info("Running pure element fitting model: %s", pe_model)
             syspm = system_settings['phase_models']
             sys_data = system_settings['datasets']
