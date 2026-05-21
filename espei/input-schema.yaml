@@ -67,6 +67,10 @@ generate_parameters:
     pe_model: #model for PE (Einstein, Debye, CS, etc)
       type: string
 
+    fitting_description:
+      required: True
+      type: string  # fully qualified import path for a ModelFittingDescription
+      default: espei.parameter_selection.fitting_descriptions.gibbs_energy_fitting_description
 
 
 ## if present, will run mcmc fitting
@@ -95,8 +99,8 @@ mcmc:
       required: True
     scheduler: # scheduler to use for parallelization
       type: string
-      default: dask # dask | None | A JSON file
-      regex: 'dask|None|.*\.json$'
+      default: dask # dask | A JSON file
+      regex: 'dask|.*\.json$'
       required: True
       nullable: True
     cores:

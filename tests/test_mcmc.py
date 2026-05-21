@@ -129,11 +129,14 @@ def test_parameter_initialization():
     initial_parameters = np.array([1, 10, 100, 1000])
     opt = EmceeOptimizer(Database())
     deterministic_params = opt.initialize_new_chains(initial_parameters, 1, 0.10, deterministic=True)
+    print(repr(deterministic_params))
     expected_parameters = np.array([
-        [9.81708401e-01, 9.39027722e+00, 1.08016748e+02, 9.13512881e+02],
-        [1.03116874, 9.01412995, 112.79594345, 916.44725799],
+        list(initial_parameters), # The first element is always a start at the initial parameters
+        #These values are known due to deterministic=True above
+        [1.03116874e+00, 9.01412995e+00, 1.12795943e+02, 9.16447258e+02],
         [1.00664662e+00, 1.07178898e+01, 9.63696718e+01, 1.36872292e+03],
-        [1.07642366e+00, 1.16413520e+01, 8.71742457e+01, 9.61836382e+02]])
+        [1.07642366e+00, 1.16413520e+01, 8.71742457e+01, 9.61836382e+02],        
+    ])
     assert np.all(np.isclose(deterministic_params, expected_parameters))
 
 
@@ -161,7 +164,7 @@ def test_equilibrium_thermochemical_correct_probability(datasets_db):
     assert np.isclose(prob, expected_prob)
 
     # change to -40000
-    prob = opt.predict(np.array([-40000], dtype=np.float_), **ctx)
+    prob = opt.predict(np.array([-40000], dtype=np.float64), **ctx)
     expected_prob = norm(loc=0, scale=500).logpdf([-40000*0.5*0.5]).sum()
     assert np.isclose(prob, expected_prob)
 

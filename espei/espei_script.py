@@ -27,7 +27,7 @@ from pycalphad import Database
 import espei
 from espei.validation import schema
 from espei import generate_parameters
-from espei.utils import ImmediateClient, database_symbols_to_fit
+from espei.utils import ImmediateClient, database_symbols_to_fit, import_qualified_object
 from espei.datasets import DatasetError, load_datasets, recursive_glob, apply_tags
 from espei.optimizers.opt_mcmc import EmceeOptimizer
 from espei.pureElement import imp_data_PE, Cp_fit, pe_inputJSON,pe_def_model, pe_iGuess#,RWModelE,CSModelE, SRModelE, autoS, autoG
@@ -117,14 +117,11 @@ def get_run_settings(input_dict):
         if run_settings['mcmc'].get('restart_trace') is None:
             run_settings['mcmc']['chains_per_parameter'] = run_settings['mcmc'].get('chains_per_parameter', 2)
             run_settings['mcmc']['chain_std_deviation'] = run_settings['mcmc'].get('chain_std_deviation', 0.1)
-        if run_settings['mcmc']['scheduler'] == 'None':
-            warnings.warn(
-                "Setting scheduler to the string 'None' will be deprecated in ESPEI "
-                "0.9. Use `null` in YAML or `None` in Python.", FutureWarning
-            )
-            run_settings['mcmc']['scheduler'] = None
     if not schema.validate(run_settings):
         raise ValueError(schema.errors)
+    if run_settings.get("generate_parameters") is not None:
+        # load the fitting description object
+        run_settings["generate_parameters"]["fitting_description"] = import_qualified_object(run_settings["generate_parameters"]["fitting_description"])
     return run_settings
 
 
@@ -175,6 +172,7 @@ def run_espei(run_settings):
         ridge_alpha = generate_parameters_settings['ridge_alpha']
         aicc_penalty = generate_parameters_settings['aicc_penalty_factor']
         input_dbf = generate_parameters_settings.get('input_db', None)
+        fitting_description = generate_parameters_settings['fitting_description']
         pe_model = generate_parameters_settings['pe_model']
         if pe_model is not None:
             print("####################RUNNING PE##################")
@@ -231,11 +229,11 @@ def run_espei(run_settings):
 
         else:
             if input_dbf is not None:
-                input_dbf = Database(input_dbf)
-            dbf = generate_parameters(phase_models, datasets, refdata, excess_model,
-                                      ridge_alpha=ridge_alpha, dbf=input_dbf,
-                                      aicc_penalty_factor=aicc_penalty,)
-            dbf.to_file(output_settings['output_db'], if_exists='overwrite')
+                    input_dbf = Database(input_dbf)
+                dbf = generate_parameters(phase_models, datasets, refdata, excess_model,
+                                        ridge_alpha=ridge_alpha, dbf=input_dbf,
+                                        aicc_penalty_factor=aicc_penalty, fitting_description=fitting_description)
+                dbf.to_file(output_settings['output_db'], if_exists='overwrite')
 
     if mcmc_settings is not None:
         tracefile = output_settings['tracefile']
@@ -333,7 +331,16 @@ def main():
     # if desired, check datasets and return
     if args.check_datasets:
         dataset_filenames = sorted(recursive_glob(args.check_datasets, '*.json'))
+
+        #if the path is a file, add that file to the list (test single dataset case!)
+        if(os.path.isfile(args.check_datasets)):
+            dataset_filenames.append(os.path.normpath(args.check_datasets))
+
+        #if there are no input files, warn the user they may have typed the wrong path
         errors = []
+        if(len(dataset_filenames) == 0):
+            errors.append(OSError("No input .json files detected at "+str(os.path.normpath(args.check_datasets))+", is your path correct?"))
+
         for dataset in dataset_filenames:
             try:
                 load_datasets([dataset])
