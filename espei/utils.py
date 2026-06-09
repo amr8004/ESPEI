@@ -73,7 +73,7 @@ class ImmediateClient(Client):
         # We want to submit the kwargs to the client before evaluating func which allows us
         # to reuse the submitted context data
         # NOTE: in emcee 3.x, _function_wrapper has been renamed to FunctionWrapper
-        if isinstance(f, _function_wrapper):
+        if isinstance(f, FunctionWrapper):
             func = f.f
             # Submit kwargs as futures if not done so
             # If a future in the context was cancelled, then also resubmit it
