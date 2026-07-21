@@ -173,7 +173,6 @@ def log_prior(param, model_flag):
 			return 0.0
 		else:
 			return -np.inf
-	 
 	elif model_flag == 'SRModelE':
 		if (
 			(0 < param[0] < 700) and
@@ -185,7 +184,6 @@ def log_prior(param, model_flag):
 			return 0.0
 		else:
 			return -np.inf
-	 
 	else:
 		raise ValueError("Invalid model_flag")
 
