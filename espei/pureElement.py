@@ -176,10 +176,10 @@ def log_prior(param, model_flag):
 	elif model_flag == 'SRModelE':
 		if (
 			(0 < param[0] < 700) and
-			(0 < param[1] < 0.01) and
-			(0 < param[2] < 0.01) and
-			(0 < param[3] < 3000) and
-			(0 < param[4] < 3000)
+			(0 < param[1] < 0.1) and
+			(0 < param[2] < 0.1) and
+			np.isfinite(param[3]) and
+			np.isfinite(param[4])
 		):
 			return 0.0
 		else:
