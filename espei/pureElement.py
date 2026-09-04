@@ -199,7 +199,7 @@ def log_likelihood(param, T, y, model_flag, sigma=DEFAULT_SIGMA):
     # the likelihood comparable across different assumed uncertainties.
     return -0.5 * np.sum(resid**2 + np.log(2 * np.pi * sigma**2))
 
-def log_prior(param,model_flag):
+def log_prior_og(param, model_flag):
     # Flat prior within a certain range
     if model_flag == 'RWModelE' or 'CSModelE':
         if 0 < param[0] < 700 and 0 < param[1] < .1 and 0 < param[2] < .1:
@@ -208,6 +208,48 @@ def log_prior(param,model_flag):
             return -np.inf
     elif model_flag == 'SRModelE':
         if (0 < param[0] < 700) and (0 < param[1] < 0.01) and (0 < param[2] < 0.01) and (0 < param[3]< 3000) and (0 < param[4]< 3000):
+            return 0.0
+        else:
+            return -np.inf
+    else:
+        raise ValueError("Invalid model_flag")
+
+def log_prior_finite(param, model_flag):
+    # Flat prior within physically/numerically admissible parameter ranges
+    if model_flag in ('RWModelE', 'CSModelE'):
+        if (0 < param[0] < 700) and (0 < param[1] < 0.1) and (0 < param[2] < 0.1):
+            return 0.0
+        else:
+            return -np.inf
+    elif model_flag == 'SRModelE':
+        if (
+            (0 < param[0] < 700) and
+            (0 < param[1] < 0.1) and
+            (0 < param[2] < 0.1) and
+            np.isfinite(param[3]) and
+            np.isfinite(param[4])
+        ):
+            return 0.0
+        else:
+            return -np.inf
+    else:
+        raise ValueError("Invalid model_flag")
+
+def log_prior(param, model_flag):
+    # Flat prior within physically/numerically admissible parameter ranges
+    if model_flag in ('RWModelE', 'CSModelE'):
+        if (0 < param[0] < 700) and (0 < param[1] < 0.1) and (0 < param[2] < 0.1):
+            return 0.0
+        else:
+            return -np.inf
+    elif model_flag == 'SRModelE':
+        if (
+            (0.0 < param[0] < 700.0) and
+            (0.0 < param[1] < 0.1) and
+            (0.0 < param[2] < 0.1) and
+            (-2e4 < param[3] < 2e4) and
+            (-2e4 < param[4] < 2e4)
+        ):
             return 0.0
         else:
             return -np.inf
