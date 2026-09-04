@@ -73,7 +73,7 @@ def AIC(logLik, nparm,k=2):
     """Look for built in AIC to replace this"""
     return - 2 * logLik + k * (nparm + 1)
 
-def PE_AICC(nparm, nobs,rss,aicc_factor=None):
+def RSS_AICC(nparm, nobs,rss,aicc_factor=None):
     print('CHECKPOINT AICC CALLED')
     k= nparm
     n = nobs
@@ -91,6 +91,26 @@ def PE_AICC(nparm, nobs,rss,aicc_factor=None):
     aicc = aic+correction
     print('correction: ',correction)
     #print('CHECKPOINT AICC SOLVED')
+    return aicc
+
+def PE_AICC(nparm, nobs,logLik,aicc_factor=None, kk=2):
+    #print('CHECKPOINT AICC CALLED')
+    k= nparm
+    n = nobs
+    AIC = -2 * logLik + kk *(k+1)
+    p=aicc_factor if aicc_factor is not None else 1.0
+    pk = nparm*p
+    aic = -2*logLik+2*(nparm+1)
+    print('aic2:', aic)
+    if pk >= (n-1.0):
+        # Prevent the denominator of the proper mAICc from blowing up (pk = n - 1) or negative (pk > n - 1)
+        correction = (2.0* p**2 * k**2 + 2.0 * pk) * (-n + pk + 3.0)
+    else:
+        correction = (2.0 * p**2 * k**2 + 2.0 * pk) / (n - pk - 1.0)
+    aicc = aic+correction
+    print('correction: ',correction)
+    #print('CHECKPOINT AICC SOLVED')
+    print('AICC: ',aicc
     return aicc
 
 def Cp_fit(func, initialGuess, parmNames, data_df):
