@@ -19,6 +19,13 @@ import emcee
 
 #KEY NOTES: parameter_selection/selection.py has model selection code, utilize here to automate model selection.
 
+# Default 1-sigma uncertainty on the Cp data (J/K/mol), used by the likelihood when
+# the caller does not supply one.
+DEFAULT_SIGMA = 0.2
+
+# Column names searched by get_uncertainty when pulling per-point errors off a DataFrame.
+UNCERTAINTY_KEYS = ['Uncertainty', 'Cp_err', 'sigma', 'Sigma']
+
 def imp_data_PE(file):
     """
     This needs to be changed to run through the espei command, run from espei_script.py script
@@ -133,6 +140,42 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
     print('AICC:', PE_AICC(nparm, nobs,RSS))
     return parmEsts
 
+def resolve_sigma(sigma, y=None):
+    """Normalize a user-supplied data uncertainty into a positive scalar or array.
+
+    sigma may be None (falls back to DEFAULT_SIGMA), a scalar applied to every
+    observation, or a per-observation array-like broadcastable against y.
+    """
+    if sigma is None:
+        sigma = DEFAULT_SIGMA
+    sigma = np.asarray(sigma, dtype=float)
+    if not np.all(np.isfinite(sigma)) or np.any(sigma <= 0):
+        raise ValueError("Data uncertainty (sigma) must be finite and strictly positive")
+    if y is not None and sigma.ndim > 0:
+        y = np.asarray(y)
+        if sigma.shape != y.shape:
+            raise ValueError("Per-point sigma has shape %s but the data has shape %s"
+                             % (sigma.shape, y.shape))
+    return sigma
+
+def get_uncertainty(data_df, sigma=None, keys=None):
+    """Get the data uncertainty to use for a dataset.
+
+    sigma may be a scalar, a per-point array, or the name of a column of data_df to
+    use as per-point uncertainty. sigma=None falls back to the first column named in
+    `keys` that data_df has, and to DEFAULT_SIGMA if it has none of them.
+    """
+    if isinstance(sigma, str):
+        if sigma not in data_df:
+            raise KeyError("No column %r in the data to use as uncertainty" % sigma)
+        return resolve_sigma(np.asarray(data_df[sigma], dtype=float))
+    if sigma is not None:
+        return resolve_sigma(sigma)
+    for key in (keys if keys is not None else UNCERTAINTY_KEYS):
+        if key in data_df:
+            return resolve_sigma(np.asarray(data_df[key], dtype=float))
+    return resolve_sigma(DEFAULT_SIGMA)
+
 def select_model(model_flag):
     # Select the model to use
     if model_flag == 'RWModelE':
@@ -144,14 +187,19 @@ def select_model(model_flag):
     else:
         raise ValueError("Invalid model_flag")
 
-def log_likelihood(param, T, y, model_flag):
+def log_likelihood(param, T, y, model_flag, sigma=DEFAULT_SIGMA):
     # Calculate the log likelihood
-    # param:
+    # param: model parameters
+    # sigma: 1-sigma uncertainty on y, either a scalar or one value per observation
     model_func = select_model(model_flag)
     model_cp = model_func(T, *param)
-    return -0.5 * np.sum((y - model_cp)**2)
+    sigma = resolve_sigma(sigma, y)
+    resid = (y - model_cp) / sigma
+    # The normalization term matters whenever sigma varies point to point, and keeps
+    # the likelihood comparable across different assumed uncertainties.
+    return -0.5 * np.sum(resid**2 + np.log(2 * np.pi * sigma**2))
 
-def log_prior_og(param,model_flag):
+def log_prior(param,model_flag):
     # Flat prior within a certain range
     if model_flag == 'RWModelE' or 'CSModelE':
         if 0 < param[0] < 700 and 0 < param[1] < .1 and 0 < param[2] < .1:
@@ -166,55 +214,17 @@ def log_prior_og(param,model_flag):
     else:
         raise ValueError("Invalid model_flag")
 
-def log_prior_finite(param, model_flag):
-	# Flat prior within physically/numerically admissible parameter ranges
-	if model_flag in ('RWModelE', 'CSModelE'):
-		if (0 < param[0] < 700) and (0 < param[1] < 0.1) and (0 < param[2] < 0.1):
-			return 0.0
-		else:
-			return -np.inf
-	elif model_flag == 'SRModelE':
-		if (
-			(0 < param[0] < 700) and
-			(0 < param[1] < 0.1) and
-			(0 < param[2] < 0.1) and
-			np.isfinite(param[3]) and
-			np.isfinite(param[4])
-		):
-			return 0.0
-		else:
-			return -np.inf
-	else:
-		raise ValueError("Invalid model_flag")
-
-def log_prior(param, model_flag):
-	# Flat prior within physically/numerically admissible parameter ranges
-	if model_flag in ('RWModelE', 'CSModelE'):
-		if (0 < param[0] < 700) and (0 < param[1] < 0.1) and (0 < param[2] < 0.1):
-			return 0.0
-		else:
-			return -np.inf
-	elif model_flag == 'SRModelE':
-		if (
-			(0.0 < param[0] < 700.0) and
-			(0.0 < param[1] < 0.1) and
-			(0.0 < param[2] < 0.1) and
-			(-2e4 < param[3] < 2e4) and
-			(-2e4 < param[4] < 2e4)
-		):
-			return 0.0
-		else:
-			return -np.inf
-	else:
-		raise ValueError("Invalid model_flag")
-
-def log_probability(param, T, y,model_flag):
+def log_probability(param, T, y, model_flag, sigma=DEFAULT_SIGMA):
     lp = log_prior(param, model_flag)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + log_likelihood(param, T, y, model_flag)
+    return lp + log_likelihood(param, T, y, model_flag, sigma)
 
-def MCMC_fit(model_flag, initialGuess, data_df, nwalkers=12, nsteps=10000, stepRemove=1000, stepThin=15):
+def MCMC_fit(model_flag, initialGuess, data_df, nwalkers=12, nsteps=10000, stepRemove=1000, stepThin=15, sigma=DEFAULT_SIGMA):
+    # sigma: data uncertainty, DEFAULT_SIGMA unless overridden. Pass a scalar, a
+    # per-point array, or a column name of data_df (e.g. sigma='Uncertainty') to use
+    # the measured per-point errors instead.
+    sigma = get_uncertainty(data_df, sigma)
     ndim = len(initialGuess)
     pos = []
     for i in range(nwalkers):
@@ -224,7 +234,7 @@ def MCMC_fit(model_flag, initialGuess, data_df, nwalkers=12, nsteps=10000, stepR
             va = v + 0.25*std[n]*v
             re.append(va)
         pos.append(np.array(re))
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(data_df.Temp, data_df.Cp, model_flag))
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(data_df.Temp, data_df.Cp, model_flag, sigma))
     sampler.run_mcmc(pos, nsteps, progress=True)
     samples = sampler.get_chain(flat=True, thin=stepThin, discard=stepRemove)
     return samples
