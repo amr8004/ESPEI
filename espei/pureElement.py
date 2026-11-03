@@ -9,6 +9,7 @@ import os
 import json
 import espei.pure_element.DB_load as PEDB
 from pycalphad.model import Define_Element, SRModelE, RWModelE, CSModelE
+from pycalphad.model import SRModelD, RWModelD, CSModelD, BroshModelD
 import emcee
 
 #from espei.paramselect import fit_formation_energy
@@ -110,7 +111,7 @@ def PE_AICC(nparm, nobs,logLik,aicc_factor=None, kk=2):
     aicc = aic+correction
     print('correction: ',correction)
     #print('CHECKPOINT AICC SOLVED')
-    print('AICC: ',aicc
+    print('AICC: ',aicc)
     return aicc
 
 def Cp_fit(func, initialGuess, parmNames, data_df):
@@ -204,6 +205,14 @@ def select_model(model_flag):
         return CSModelE
     elif model_flag == 'SRModelE':
         return SRModelE
+    elif model_flag == 'RWModelD':
+        return RWModelD
+    elif model_flag == 'CSModelD':
+        return CSModelD
+    elif model_flag == 'SRModelD':
+        return SRModelD
+    elif model_flag == 'BroshModelD':
+        return BroshModelD
     else:
         raise ValueError("Invalid model_flag")
 
@@ -255,8 +264,31 @@ def log_prior_finite(param, model_flag):
     else:
         raise ValueError("Invalid model_flag")
 
+# Upper bound on theta_D for the pseudo-Debye models. Debye temperatures run to
+# ~1450 K (Be) and ~2200 K (diamond), so the Einstein cap of 700 K is too tight.
+THETA_D_MAX = 2500.0
+
+
+def log_prior_debye(param, model_flag):
+    if not (0.0 < param[0] < THETA_D_MAX):
+        return -np.inf
+    if model_flag in ('RWModelD', 'CSModelD'):
+        ok = (0 < param[1] < 0.1) and (0 < param[2] < 0.1)
+    elif model_flag == 'SRModelD':
+        ok = ((0.0 < param[1] < 0.1) and (0.0 < param[2] < 0.1) and
+              (-2e4 < param[3] < 2e4) and (-2e4 < param[4] < 2e4))
+    elif model_flag == 'BroshModelD':
+        # Tt > 0, a1 > 0; a2..a4 may take either sign
+        ok = (0.0 < param[1] < 2e4) and (0.0 < param[2] < 0.1) and bool(np.all(np.isfinite(param[3:6])))
+    else:
+        raise ValueError("Invalid model_flag")
+    return 0.0 if ok else -np.inf
+
+
 def log_prior(param, model_flag):
     # Flat prior within physically/numerically admissible parameter ranges
+    if model_flag.endswith('ModelD'):
+        return log_prior_debye(param, model_flag)
     if model_flag in ('RWModelE', 'CSModelE'):
         if (0 < param[0] < 700) and (0 < param[1] < 0.1) and (0 < param[2] < 0.1):
             return 0.0
