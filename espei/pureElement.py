@@ -144,7 +144,7 @@ def Cp_fit(func, initialGuess, parmNames, data_df):
 
     # Get goodnes-of-fit criteria
     s2b = RSS / nobs
-    logLik = -nobs/2 * (np.log(2*np.pi) - np.log(s2b)) - 1/(2*s2b) * RSS
+    logLik = -nobs/2 * (np.log(2*np.pi) + np.log(s2b)) - 1/(2*s2b) * RSS
 
     fit_df=pd.DataFrame(dict( Estimate=parmEsts, StdErr=parmSE, tval=tvals, pval=pvals))
 
